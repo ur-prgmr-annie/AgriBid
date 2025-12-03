@@ -1,233 +1,358 @@
-require('dotenv').config();
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const admin = require('firebase-admin');
+import { View, Text, Dimensions, Animated, Image } from 'react-native';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
 
-// Path to your service account key JSON
-const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+const { width, height } = Dimensions.get('window');
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+export default function LoadingScreen() {
+  const router = useRouter();
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideUpAnim = useRef(new Animated.Value(40)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
-const app = express();
+  useEffect(() => {
+    // Floating animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
-// CORS configuration
-const corsOptions = {
-  origin: 'http://localhost:8081',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200,
-};
+    // Main entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideUpAnim, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: 2500,
+        useNativeDriver: false,
+      })
+    ]).start();
 
-app.use(cors(corsOptions));
+    // Redirect to login after 3 seconds
+    const timer = setTimeout(() => {
+      router.replace('/login');
+    }, 3000);
 
-// ✅ FIXED: use '/*' instead of '*'
-//app.options('/*', cors(corsOptions));
+    return () => clearTimeout(timer);
+  }, []);
 
-app.use(bodyParser.json());
+  const floatInterpolate = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -15]
+  });
 
-// Middleware to verify Firebase ID token
-async function verifyFirebaseToken(req, res, next) {
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized: No token provided' });
-    }
-    const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    req.uid = decodedToken.uid;
-    next();
-  } catch (err) {
-    console.error('verifyFirebaseToken error:', err);
-    return res.status(401).json({ error: 'Unauthorized: ' + err.message });
-  }
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%']
+  });
+
+  return (
+    <LinearGradient
+      colors={['#0d1f0d', '#1a331a', '#2d4d2d']}
+      style={styles.container}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      {/* Animated Background Elements */}
+      <Animated.View 
+        style={[
+          styles.orb1,
+          {
+            transform: [{ translateY: floatInterpolate }],
+            opacity: fadeAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 0.15]
+            })
+          }
+        ]} 
+      />
+      
+      <Animated.View 
+        style={[
+          styles.orb2,
+          {
+            transform: [{ translateY: floatInterpolate.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 10]
+            }) }],
+            opacity: fadeAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 0.1]
+            })
+          }
+        ]} 
+      />
+
+      <View style={styles.content}>
+        {/* Logo with Glow Effect */}
+        <Animated.View 
+          style={[
+            styles.logoContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideUpAnim },
+                { scale: scaleAnim }
+              ]
+            }
+          ]}
+        >
+          <View style={styles.logoGlow} />
+          <View style={styles.logoPlaceholder}>
+            {/* Using your actual logo */}
+            <Image 
+              source={require('../assets/logo.png')} // Correct path to your logo
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
+        </Animated.View>
+
+        {/* Main Content */}
+        <Animated.View 
+          style={[
+            styles.mainContent,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideUpAnim.interpolate({
+                  inputRange: [0, 40],
+                  outputRange: [0, 20]
+                }) }
+              ]
+            }
+          ]}
+        >
+          <Text style={styles.title}>AGRIBID</Text>
+          <View style={styles.titleLine} />
+          <Text style={styles.subtitle}>
+            SMART AGRICULTURAL TRADING
+          </Text>
+          <Text style={styles.description}>
+            Connecting farmers and buyers through intelligent trading
+          </Text>
+        </Animated.View>
+
+        {/* Loading Progress Bar */}
+        <Animated.View 
+          style={[
+            styles.loadingContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideUpAnim.interpolate({
+                  inputRange: [0, 40],
+                  outputRange: [0, 30]
+                }) }
+              ]
+            }
+          ]}
+        >
+          <View style={styles.progressBackground}>
+            <Animated.View 
+              style={[
+                styles.progressFill,
+                { width: progressWidth }
+              ]} 
+            />
+          </View>
+          <Text style={styles.loadingText}>Initializing platform...</Text>
+        </Animated.View>
+
+        {/* Features Badge */}
+        <Animated.View 
+          style={[
+            styles.techBadge,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideUpAnim.interpolate({
+                  inputRange: [0, 40],
+                  outputRange: [0, 10]
+                }) }
+              ]
+            }
+          ]}
+        >
+          <Text style={styles.techText}>SECURE • REAL-TIME • AI-POWERED</Text>
+        </Animated.View>
+      </View>
+    </LinearGradient>
+  );
 }
 
-// ===== PUBLIC ROUTES =====
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK' });
-});
-
-// All /api routes require auth
-const api = express.Router();
-api.use(verifyFirebaseToken);
-
-// ================= PROFILE & ROLE ROUTES (used by login/register) =================
-
-// GET /api/profile
-api.get('/profile', async (req, res) => {
-  try {
-    const uid = req.uid;
-    const db = admin.firestore();
-    const doc = await db.collection('profiles').doc(uid).get();
-    if (!doc.exists) {
-      const newProfile = { uid, createdAt: new Date().toISOString() };
-      await db.collection('profiles').doc(uid).set(newProfile);
-      return res.json({ profile: newProfile });
-    }
-    return res.json({ profile: doc.data() });
-  } catch (err) {
-    console.error('GET /api/profile error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// POST /api/profile
-api.post('/profile', async (req, res) => {
-  try {
-    const uid = req.uid;
-    const { fullName, phone, userType } = req.body;
-    if (!fullName || !phone || !userType) {
-      return res
-        .status(400)
-        .json({ error: 'Missing required fields: fullName, phone, userType' });
-    }
-
-    const db = admin.firestore();
-    const userRef = db.collection('profiles').doc(uid);
-    const doc = await userRef.get();
-    const now = new Date().toISOString();
-
-    if (doc.exists) {
-      await userRef.set(
-        { fullName, phone, userType, updatedAt: now },
-        { merge: true }
-      );
-    } else {
-      await userRef.set({
-        uid,
-        fullName,
-        phone,
-        userType,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    const savedProfile = (await userRef.get()).data();
-    return res.status(200).json({ profile: savedProfile });
-  } catch (err) {
-    console.error('POST /api/profile error:', err);
-    return res.status(500).json({ error: 'Server error while saving profile' });
-  }
-});
-
-// GET /api/user/role
-api.get('/user/role', async (req, res) => {
-  try {
-    const uid = req.uid;
-    const db = admin.firestore();
-    const doc = await db.collection('profiles').doc(uid).get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Profile not found' });
-    }
-    const data = doc.data();
-    return res.json({ role: data.userType });
-  } catch (err) {
-    console.error('GET /api/user/role error:', err);
-    return res.status(500).json({ error: 'Server error retrieving role' });
-  }
-});
-
-// ================= LISTINGS ROUTES (used by farmer/buyer pages) =================
-
-// POST /api/listings – create listing
-api.post('/listings', async (req, res) => {
-  try {
-    const uid = req.uid;
-    const {
-      cropType,
-      variety,
-      quantity,
-      minimumPrice,
-      suggestedPrice,
-      description,
-    } = req.body;
-
-    if (!cropType || !variety || !quantity || !minimumPrice) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const db = admin.firestore();
-    const listingRef = db.collection('listings').doc(); // auto id
-    const now = new Date().toISOString();
-
-    const newListing = {
-      id: listingRef.id,
-      farmerUid: uid,
-      cropType,
-      variety,
-      quantity,
-      minimumPrice,
-      suggestedPrice: suggestedPrice || null,
-      description: description || '',
-      createdAt: now,
-      status: 'open',
-    };
-
-    await listingRef.set(newListing);
-    res.status(201).json({ listing: newListing });
-  } catch (err) {
-    console.error('POST /api/listings error:', err);
-    res.status(500).json({ error: 'Server error while creating listing' });
-  }
-});
-
-// GET /api/listings – all listings for buyers
-api.get('/listings', async (req, res) => {
-  try {
-    const db = admin.firestore();
-    const snapshot = await db.collection('listings').get();
-    const listings = snapshot.docs.map((doc) => doc.data());
-    res.json({ listings });
-  } catch (err) {
-    console.error('GET /api/listings error:', err);
-    res.status(500).json({ error: 'Server error fetching listings' });
-  }
-});
-
-// GET /api/listings/:id – single listing
-api.get('/listings/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const db = admin.firestore();
-    const doc = await db.collection('listings').doc(id).get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Listing not found' });
-    }
-    res.json({ listing: doc.data() });
-  } catch (err) {
-    console.error('GET /api/listings/:id error:', err);
-    res.status(500).json({ error: 'Server error fetching listing detail' });
-  }
-});
-
-// POST /api/predict-price – dummy suggested price
-api.post('/predict-price', async (req, res) => {
-  try {
-    const { cropType, variety, quantity } = req.body;
-    if (!cropType || !variety || !quantity) {
-      return res
-        .status(400)
-        .json({ error: 'Missing required fields for prediction' });
-    }
-    const suggestedPrice = parseFloat(quantity) * 50; // placeholder logic
-    res.json({ suggestedPrice });
-  } catch (err) {
-    console.error('POST /api/predict-price error:', err);
-    res.status(500).json({ error: 'Server error during prediction' });
-  }
-});
-
-app.use('/api', api);
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 24,
+    paddingTop: 120,
+    paddingBottom: 40,
+    justifyContent: 'space-between',
+  },
+  orb1: {
+    position: 'absolute',
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: '#4caf50',
+    top: -200,
+    right: -100,
+    opacity: 0.15,
+  },
+  orb2: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#81c784',
+    bottom: -150,
+    left: -100,
+    opacity: 0.1,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+    position: 'relative',
+  },
+  logoGlow: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#4caf50',
+    opacity: 0.3,
+  },
+  logoPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#4caf50',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+    elevation: 20,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mainContent: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  title: {
+    fontSize: 52,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 8,
+    letterSpacing: 2,
+    textShadowColor: 'rgba(76, 175, 80, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+  titleLine: {
+    width: 100,
+    height: 4,
+    backgroundColor: '#4caf50',
+    borderRadius: 2,
+    marginBottom: 20,
+    shadowColor: '#4caf50',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#a5d6a7',
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+  },
+  description: {
+    fontSize: 14,
+    color: '#e8f5e8',
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 320,
+    opacity: 0.9,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  progressBackground: {
+    width: '80%',
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4caf50',
+    borderRadius: 3,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#a5d6a7',
+    textAlign: 'center',
+  },
+  techBadge: {
+    alignItems: 'center',
+  },
+  techText: {
+    fontSize: 10,
+    color: '#81c784',
+    letterSpacing: 1,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
 });
